@@ -40,6 +40,9 @@ groups:
       - page: Office Editor
         logo: OfficeEditor-cover.png
         description: "Les documents ODT, DOCX, XLSX, PPTX… modifiés dans Dolibarr avec le vrai LibreOffice, dans le navigateur"
+      - page: Commander aux fournisseurs
+        logo: OrderToSupplier-cover.png
+        description: "Commandes fournisseurs et demandes de prix créées depuis une commande client validée, liées ligne à ligne"
       - page: DoliEsign
         logo: doliesign_250x250.png
         description: "Signature électronique des documents Dolibarr"
