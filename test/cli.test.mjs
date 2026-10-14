@@ -37,3 +37,16 @@ test('an unknown option is refused', () => {
   assert.equal(result.status, 1)
   assert.match(result.stderr, /Unknown option '--dry-run'/)
 })
+
+test('--home and --descriptor cannot be used together', () => {
+  const result = cli(['--home', 'home/accueil.yml', '--descriptor', DESCRIPTOR])
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /use either --descriptor \(a module page\) or --home \(the home page\)/)
+})
+
+test('an invalid home list fails before any network call', () => {
+  const dir = makeModule({ 'home.yml': 'title: Accueil\n' })
+  const result = cli(['--home', `${dir}/home.yml`, '--api', 'http://127.0.0.1:9/api.php'])
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /headline is required|at least one group/)
+})

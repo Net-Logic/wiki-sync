@@ -69,6 +69,22 @@ export class WikiApi {
     return { exists: true, title: page.title, revid: revision.revid, content: revision.slots.main.content }
   }
 
+  // Whether each page exists (titles as written; the wiki normalizes them)
+  async pagesExist(titles) {
+    const result = new Map()
+    for (let i = 0; i < titles.length; i += TITLES_PER_QUERY) {
+      const chunk = titles.slice(i, i + TITLES_PER_QUERY)
+      const data = await this.request({ action: 'query', titles: chunk.join('|') })
+      const normalized = new Map((data.query.normalized ?? []).map(entry => [entry.from, entry.to]))
+      const pages = new Map((data.query.pages ?? []).map(page => [page.title, page]))
+      for (const title of chunk) {
+        const page = pages.get(normalized.get(title) ?? title)
+        result.set(title, Boolean(page && !page.missing && !page.invalid))
+      }
+    }
+    return result
+  }
+
   // sha1 (hex) of the current version of each file, null when the file does not exist
   async fileSha1s(names) {
     const result = new Map()

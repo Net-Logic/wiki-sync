@@ -44,3 +44,9 @@ test('report of a text the wiki would rewrite on save', () => {
   assert.match(report, /^  generated: a ~~~~$/m)
   assert.match(report, /^  stored:    a \[\[User:X\]\]$/m)
 })
+
+test('report lists the problems a real run refuses', () => {
+  const report = renderReport({ title: 'Accueil', state: 'synced', force: false, images, problems: ['wiki page "Nope" does not exist'], diff: null })
+  assert.match(report, /^Problems \(a real run REFUSES\):\n  - wiki page "Nope" does not exist$/m)
+  assert.doesNotMatch(renderReport({ title: 'P', state: 'synced', force: false, images, diff: null }), /Problems/)
+})

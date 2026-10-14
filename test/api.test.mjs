@@ -142,3 +142,17 @@ test('preSaveTransform asks the wiki for the text it would store, anonymously', 
   assert.equal(calls[0].params.text, '[[Corbeille|]]')
   assert.equal(calls[0].params.token, undefined)
 })
+
+test('pagesExist maps titles through the wiki normalization', async () => {
+  const { fetch, calls } = fakeFetch(() => ({
+    body: {
+      query: {
+        normalized: [{ from: 'galerie_x', to: 'Galerie x' }],
+        pages: [{ title: 'Galerie x', pageid: 3 }, { title: 'Nope', missing: true }]
+      }
+    }
+  }))
+  const result = await new WikiApi({ apiUrl: API, fetch }).pagesExist(['galerie_x', 'Nope'])
+  assert.deepEqual([...result], [['galerie_x', true], ['Nope', false]])
+  assert.equal(calls[0].params.titles, 'galerie_x|Nope')
+})
