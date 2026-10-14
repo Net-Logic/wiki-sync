@@ -26,8 +26,8 @@ test('every request asks for JSON formatversion 2 and sends a User-Agent', async
 test('API errors and HTTP errors throw', async () => {
   const api = new WikiApi({ apiUrl: API, fetch: fakeFetch(() => ({ body: { error: { code: 'badtoken', info: 'Invalid CSRF token.' } } })).fetch })
   await assert.rejects(api.readPage('Prune'), /Wiki API query: badtoken: Invalid CSRF token\./)
-  const down = new WikiApi({ apiUrl: API, fetch: fakeFetch(() => ({ status: 502, body: {} })).fetch })
-  await assert.rejects(down.readPage('Prune'), /HTTP 502/)
+  const missing = new WikiApi({ apiUrl: API, fetch: fakeFetch(() => ({ status: 404, body: {} })).fetch })
+  await assert.rejects(missing.readPage('Prune'), /HTTP 404/)
 })
 
 test('login sends the login token with the session cookie, then fetches the CSRF token', async () => {
@@ -155,4 +155,65 @@ test('pagesExist maps titles through the wiki normalization', async () => {
   const result = await new WikiApi({ apiUrl: API, fetch }).pagesExist(['galerie_x', 'Nope'])
   assert.deepEqual([...result], [['galerie_x', true], ['Nope', false]])
   assert.equal(calls[0].params.titles, 'galerie_x|Nope')
+})
+
+// A fetch answering from a list of steps: an Error to throw, or { status, body }
+function scriptedFetch(steps) {
+  const calls = []
+  const fetch = async (url, init = {}) => {
+    calls.push(init.method ?? 'GET')
+    const step = steps[Math.min(calls.length - 1, steps.length - 1)]
+    if (step instanceof Error) throw step
+    const status = step.status ?? 200
+    return { ok: status === 200, status, headers: { getSetCookie: () => [] }, json: async () => step.body }
+  }
+  return { fetch, calls }
+}
+
+const page = { body: { query: { pages: [{ title: 'Prune', missing: true }] } } }
+const retrying = (fetch, waits = []) => new WikiApi({ apiUrl: API, fetch, retryDelays: [5, 15, 30, 60], sleep: async ms => { waits.push(ms) } })
+
+test('a network error is retried after a delay', async () => {
+  const waits = []
+  const { fetch, calls } = scriptedFetch([new TypeError('fetch failed'), page])
+  assert.deepEqual(await retrying(fetch, waits).readPage('Prune'), { exists: false, title: 'Prune' })
+  assert.equal(calls.length, 2)
+  assert.deepEqual(waits, [5])
+})
+
+test('HTTP 503 and a ratelimited answer are retried, with growing delays', async () => {
+  const waits = []
+  const { fetch } = scriptedFetch([{ status: 503, body: {} }, { body: { error: { code: 'ratelimited', info: 'too fast' } } }, page])
+  await retrying(fetch, waits).readPage('Prune')
+  assert.deepEqual(waits, [5, 15])
+})
+
+test('after the last retry the error is thrown', async () => {
+  const waits = []
+  const { fetch, calls } = scriptedFetch([new TypeError('fetch failed')])
+  await assert.rejects(retrying(fetch, waits).readPage('Prune'), /fetch failed/)
+  assert.equal(calls.length, 5)
+  assert.deepEqual(waits, [5, 15, 30, 60])
+})
+
+test('a lasting API error is not retried', async () => {
+  const waits = []
+  const { fetch, calls } = scriptedFetch([{ body: { error: { code: 'badtoken', info: 'Invalid CSRF token.' } } }])
+  await assert.rejects(retrying(fetch, waits).readPage('Prune'), /badtoken/)
+  assert.equal(calls.length, 1)
+  assert.deepEqual(waits, [])
+})
+
+test('each retry is logged', async () => {
+  const lines = []
+  const { fetch } = scriptedFetch([new TypeError('fetch failed'), page])
+  await new WikiApi({ apiUrl: API, fetch, retryDelays: [5], sleep: async () => {}, log: line => lines.push(line) }).readPage('Prune')
+  assert.match(lines[0], /^Wiki API query: fetch failed, retry 1\/1 in 0\.005 s$/)
+})
+
+test('an upload whose first answer was lost is a success when the file is already there', async () => {
+  const { fetch } = scriptedFetch([{ body: { error: { code: 'fileexists-no-change', info: 'The upload is an exact duplicate of the current version' } } }])
+  const api = new WikiApi({ apiUrl: API, fetch })
+  api.csrf = 'CT'
+  await api.upload('Prune-x.png', Buffer.from('x'), 'c')
 })

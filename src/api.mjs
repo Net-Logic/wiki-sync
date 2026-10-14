@@ -1,15 +1,39 @@
 const USER_AGENT = 'wiki-sync (https://github.com/Net-Logic/wiki-sync)'
 const TITLES_PER_QUERY = 50
+// Waits before each retry of a transient failure; the upload rate limit of MediaWiki counts per minute
+const RETRY_DELAYS = [5000, 15000, 30000, 60000]
+const TRANSIENT_CODES = ['ratelimited', 'maxlag']
+
+class TransientError extends Error {}
 
 export class WikiApi {
-  constructor({ apiUrl, fetch = globalThis.fetch }) {
+  constructor({ apiUrl, fetch = globalThis.fetch, retryDelays = RETRY_DELAYS, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), log = () => {} }) {
     this.apiUrl = apiUrl
     this.fetch = fetch
+    this.retryDelays = retryDelays
+    this.sleep = sleep
+    this.log = log
     this.cookies = new Map()
     this.csrf = null
   }
 
-  async request(params, { post = false, files = {} } = {}) {
+  // A network error, HTTP 429/5xx, ratelimited or maxlag is retried; any other error is thrown at once
+  async request(params, options = {}) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.attempt(params, options)
+      } catch (error) {
+        if (!(error instanceof TransientError) || attempt >= this.retryDelays.length) {
+          throw new Error(error.message)
+        }
+        const delay = this.retryDelays[attempt]
+        this.log(`Wiki API ${params.action}: ${error.message}, retry ${attempt + 1}/${this.retryDelays.length} in ${delay / 1000} s`)
+        await this.sleep(delay)
+      }
+    }
+  }
+
+  async attempt(params, { post = false, files = {} } = {}) {
     const all = { ...params, format: 'json', formatversion: '2' }
     const init = { headers: { 'User-Agent': USER_AGENT } }
     let url = this.apiUrl
@@ -29,7 +53,12 @@ export class WikiApi {
     if (this.cookies.size) {
       init.headers.Cookie = [...this.cookies].map(([name, value]) => `${name}=${value}`).join('; ')
     }
-    const response = await this.fetch(url, init)
+    let response
+    try {
+      response = await this.fetch(url, init)
+    } catch (error) {
+      throw new TransientError(error.message)
+    }
     // The login token is bound to the session cookie of the request that fetched it
     for (const cookie of response.headers.getSetCookie?.() ?? []) {
       const [pair] = cookie.split(';')
@@ -37,11 +66,13 @@ export class WikiApi {
       this.cookies.set(pair.slice(0, at).trim(), pair.slice(at + 1).trim())
     }
     if (!response.ok) {
-      throw new Error(`Wiki API HTTP ${response.status} on ${params.action}`)
+      const message = `Wiki API HTTP ${response.status} on ${params.action}`
+      throw response.status === 429 || response.status >= 500 ? new TransientError(message) : new Error(message)
     }
     const data = await response.json()
     if (data.error) {
-      throw new Error(`Wiki API ${params.action}: ${data.error.code}: ${data.error.info}`)
+      const message = `Wiki API ${params.action}: ${data.error.code}: ${data.error.info}`
+      throw TRANSIENT_CODES.includes(data.error.code) ? new TransientError(message) : new Error(message)
     }
     return data
   }
@@ -104,10 +135,19 @@ export class WikiApi {
   }
 
   async upload(name, data, comment) {
-    const response = await this.request(
-      { action: 'upload', filename: name, comment, ignorewarnings: '1', token: this.csrf },
-      { post: true, files: { file: { name, data } } }
-    )
+    let response
+    try {
+      response = await this.request(
+        { action: 'upload', filename: name, comment, ignorewarnings: '1', token: this.csrf },
+        { post: true, files: { file: { name, data } } }
+      )
+    } catch (error) {
+      // A retry after a lost answer finds the file already uploaded with these bytes
+      if (error.message.includes(': fileexists-no-change: ')) {
+        return
+      }
+      throw error
+    }
     if (response.upload?.result !== 'Success') {
       throw new Error(`Upload of ${name} failed: ${JSON.stringify(response.upload)}`)
     }

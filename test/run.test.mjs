@@ -145,3 +145,17 @@ test('submit refuses a text the wiki would rewrite, before login or upload', asy
   assert.ok(!names(api.calls).includes('login'))
   assert.ok(!names(api.calls).includes('upload'))
 })
+
+test('an edit whose answer was lost is a success when the page holds the generated text', async () => {
+  const api = fakeApi()
+  const edit = api.edit
+  api.edit = async args => { await edit(args); throw new Error('Wiki API edit: editconflict: Edit conflict.') }
+  const result = await run({ ...options(api), submit: true })
+  assert.equal(result.status, 'updated')
+})
+
+test('an edit error stays an error when the page does not hold the generated text', async () => {
+  const api = fakeApi()
+  api.edit = async () => { throw new Error('Wiki API edit: editconflict: Edit conflict.') }
+  await assert.rejects(run({ ...options(api), submit: true }), /editconflict/)
+})

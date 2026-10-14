@@ -49,7 +49,7 @@ async function main() {
   }
   const common = {
     out: values.out,
-    api: new WikiApi({ apiUrl: values.api }),
+    api: new WikiApi({ apiUrl: values.api, log: console.log }),
     apiUrl: values.api,
     submit: values.submit,
     force: values.force,

@@ -72,8 +72,17 @@ export async function publish({ api, apiUrl, title, text, images = [], unused = 
     log('Page text: no change')
     return { status: 'no-change', state, images: report }
   }
-  await api.edit({ title, text, summary, baserevid: current.exists ? current.revid : null })
+  let editError = null
+  try {
+    await api.edit({ title, text, summary, baserevid: current.exists ? current.revid : null })
+  } catch (error) {
+    // A retry after a lost answer conflicts with our own saved edit: the page then holds the generated text
+    editError = error
+  }
   const saved = await api.readPage(title)
+  if (editError && saved.content !== text) {
+    throw editError
+  }
   if (saved.content !== text) {
     const { line } = firstDifferentLine(saved.content, text)
     throw new Error(`The wiki saved a different text (first difference at line ${line}): a concurrent edit was merged, or the wiki rewrote a construct. Compare the page with ${join(out, 'page.wiki')}; the next run needs --force`)
