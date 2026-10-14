@@ -48,10 +48,22 @@ function verdict(state, force) {
 
 const list = names => names.join(', ') || 'none'
 
-export function renderReport({ title, state, force, images, diff }) {
+function presaveLines(presave) {
+  if (!presave) {
+    return ['Pre-save check: OK, the wiki stores the text as generated']
+  }
+  return [
+    `Pre-save check: the wiki would rewrite line ${presave.line} on save, a real run REFUSES:`,
+    `  generated: ${presave.generated}`,
+    `  stored:    ${presave.stored}`
+  ]
+}
+
+export function renderReport({ title, state, force, images, presave = null, diff }) {
   return [
     `Page: ${title}`,
     `State: ${verdict(state, force)}`,
+    ...presaveLines(presave),
     `Images to upload: ${list(images.upload)}`,
     `Images unchanged: ${list(images.unchanged)}`,
     `Images in wiki/images not used by the page: ${list(images.unused)}`,

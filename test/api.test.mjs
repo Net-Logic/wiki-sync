@@ -133,3 +133,12 @@ test('parse posts the text anonymously and returns the HTML', async () => {
   assert.equal(calls[0].params.contentmodel, 'wikitext')
   assert.equal(calls[0].params.token, undefined)
 })
+
+test('preSaveTransform asks the wiki for the text it would store, anonymously', async () => {
+  const { fetch, calls } = fakeFetch(() => ({ body: { parse: { text: '[[Corbeille|Corbeille]]' } } }))
+  assert.equal(await new WikiApi({ apiUrl: API, fetch }).preSaveTransform('Prune', '[[Corbeille|]]'), '[[Corbeille|Corbeille]]')
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(calls[0].params.onlypst, '1')
+  assert.equal(calls[0].params.text, '[[Corbeille|]]')
+  assert.equal(calls[0].params.token, undefined)
+})

@@ -100,7 +100,7 @@ export class WikiApi {
   async edit({ title, text, summary, baserevid }) {
     const params = { action: 'edit', title, text, summary, bot: '1', token: this.csrf }
     if (baserevid) {
-      // An edit made since baserevid gives editconflict instead of being overwritten
+      // An edit made since baserevid gives editconflict or is merged, never silently overwritten
       params.baserevid = baserevid
       params.nocreate = '1'
     } else {
@@ -111,6 +111,12 @@ export class WikiApi {
       throw new Error(`Edit of ${title} failed: ${JSON.stringify(response.edit)}`)
     }
     return response.edit
+  }
+
+  // The text as the wiki would store it (pre-save transform: signatures, pipe trick...), without saving
+  async preSaveTransform(title, text) {
+    const data = await this.request({ action: 'parse', title, text, contentmodel: 'wikitext', onlypst: '1' }, { post: true })
+    return data.parse.text
   }
 
   async parse(title, text) {

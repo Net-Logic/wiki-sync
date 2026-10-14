@@ -16,7 +16,7 @@ function firstDifferentLine(a, b) {
   while (i < left.length && i < right.length && left[i] === right[i]) {
     i++
   }
-  return i + 1
+  return { line: i + 1, generated: right[i] ?? '', stored: left[i] ?? '' }
 }
 
 export async function run({ modulePath, descriptor, out, api, apiUrl, repository, submit = false, force = false, sourceUrl = null, credentials = null, log = console.log }) {
@@ -48,15 +48,24 @@ export async function run({ modulePath, descriptor, out, api, apiUrl, repository
     unused: [...module.images.keys()].filter(name => !used.has(name))
   }
   const noChange = current.exists && current.content === text
+  // A text the wiki rewrites on save would carry a wrong marker: every later run would see a hand-edited page
+  const stored = await api.preSaveTransform(page.title, text)
+  const presave = stored === text ? null : firstDifferentLine(stored, text)
 
   mkdirSync(out, { recursive: true })
   writeFileSync(join(out, 'page.wiki'), text + '\n')
-  writeFileSync(join(out, 'diff.txt'), renderReport({ title: page.title, state, force, images, diff: noChange ? null : lineDiff(current.exists ? current.content : '', text) }))
+  writeFileSync(join(out, 'diff.txt'), renderReport({ title: page.title, state, force, images, presave, diff: noChange ? null : lineDiff(current.exists ? current.content : '', text) }))
   writeFileSync(join(out, 'preview.html'), previewHtml(apiUrl, page.title, await api.parse(page.title, text)))
   log(`Page "${page.title}": ${state}, ${upload.length} image(s) to upload, text ${noChange ? 'unchanged' : 'changed'}. Report in ${out}`)
+  if (presave) {
+    log(`Warning: the wiki would rewrite line ${presave.line} on save, see ${join(out, 'diff.txt')}`)
+  }
 
   if (!submit) {
     return { status: 'dry-run', state, images }
+  }
+  if (presave) {
+    throw new Error(`Refused: the wiki would rewrite line ${presave.line} of the generated text on save ("${presave.generated}" stored as "${presave.stored}"). Change that construct in wiki/fr.md`)
   }
   if (state === 'unmarked' && !force) {
     throw new Error(`Refused: the page "${page.title}" was never synced by wiki-sync. Check ${join(out, 'diff.txt')}, then run once with --force to take it over`)
@@ -79,7 +88,8 @@ export async function run({ modulePath, descriptor, out, api, apiUrl, repository
   await api.edit({ title: page.title, text, summary, baserevid: current.exists ? current.revid : null })
   const saved = await api.readPage(page.title)
   if (saved.content !== text) {
-    throw new Error(`The wiki saved a different text (first difference at line ${firstDifferentLine(saved.content, text)}): the next run would see a page edited by hand. Compare the page with ${join(out, 'page.wiki')} and avoid that construct`)
+    const { line } = firstDifferentLine(saved.content, text)
+    throw new Error(`The wiki saved a different text (first difference at line ${line}): a concurrent edit was merged, or the wiki rewrote a construct. Compare the page with ${join(out, 'page.wiki')}; the next run needs --force`)
   }
   log(`Page "${page.title}" saved`)
   return { status: 'updated', state, images }

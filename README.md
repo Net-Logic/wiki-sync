@@ -64,7 +64,8 @@ Anything else (task lists, relative links...) is an error naming the line.
 ```
 
 A manual run (`workflow_dispatch`) is always a dry-run: download the `wiki-preview` artifact (`diff.txt`,
-`page.wiki`, `preview.html`). Secrets: a bot password created on `Special:BotPasswords` (grants: basic
+`page.wiki`, `preview.html`). `diff.txt` also says whether the wiki would rewrite part of the text on save
+(signature `~~~~` in a wikitext block...): a real run refuses such a text before changing anything. Secrets: a bot password created on `Special:BotPasswords` (grants: basic
 rights, edit existing pages, create pages, upload new files, upload/replace files), stored as repository
 secrets `WIKI_LOGIN` (`User@botname`) and `WIKI_PASSWORD`.
 
