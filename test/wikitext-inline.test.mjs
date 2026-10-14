@@ -13,8 +13,13 @@ test('an apostrophe before bold does not merge with the bold markup', () => {
   assert.equal(convert("l'**API**"), "l&#39;'''API'''")
 })
 
-test('inline code is escaped', () => {
-  assert.equal(convert('`a = b` `<x>`'), '<code>a &#61; b</code> <code>&lt;x&gt;</code>')
+test('inline code is literal: nowiki, as the spec says', () => {
+  assert.equal(convert('`a = b` `<x>`'), '<code><nowiki>a = b</nowiki></code> <code><nowiki>&lt;x&gt;</nowiki></code>')
+  assert.equal(convert('`https://wiki.netlogic.fr/api.php`'), '<code><nowiki>https://wiki.netlogic.fr/api.php</nowiki></code>')
+})
+
+test('inline code cannot close its nowiki', () => {
+  assert.equal(convert('`</nowiki>[[x]]`'), '<code><nowiki>&lt;/nowiki&gt;[[x]]</nowiki></code>')
 })
 
 test('text keeps the HTML escaping of marked', () => {
@@ -49,6 +54,10 @@ test('wiki links', () => {
 
 test('a relative link is refused', () => {
   assert.throws(() => convert('[doc](../doc.md)'), /only http\(s\), mailto and wiki:<Page> links/)
+})
+
+test('a wiki link without text is refused (the wiki would rewrite [[Page|]] on save)', () => {
+  assert.throws(() => convert('[](wiki:Corbeille)'), /empty link text/)
 })
 
 test('a wiki link with markup characters is refused', () => {

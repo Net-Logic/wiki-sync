@@ -16,7 +16,8 @@ export class ConvertError extends Error {
 
 // Convert wiki/fr.md to wikitext. Returns the text and the set of wiki/images files it uses.
 export function toWikitext(markdown, { imagePrefix, images }) {
-  const source = markdown.replace(/\r\n?/g, '\n')
+  // Windows editors may add a BOM: marked would read '\uFEFF# Title' as a paragraph
+  const source = markdown.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   const ctx = { imagePrefix, images, used: new Set() }
   const blocks = []
   let offset = 0
@@ -143,7 +144,8 @@ function renderInlineToken(token, ctx) {
     case 'del':
       return `<del>${renderInline(token.tokens, ctx)}</del>`
     case 'codespan':
-      return `<code>${escapeWikiText(token.text.replace(/\n/g, ' '))}</code>`
+      // marked already escaped < and >, so the text cannot close the nowiki
+      return `<code><nowiki>${token.text.replace(/\n/g, ' ')}</nowiki></code>`
     case 'br':
       return '<br/>'
     case 'html':
@@ -162,6 +164,9 @@ function renderLink(token, ctx) {
     const page = decodeURIComponent(token.href.slice(5)).trim()
     if (!page || BAD_PAGE_NAME.test(page)) {
       throw new ConvertError(`link "${token.href}": invalid wiki page name`)
+    }
+    if (!token.text) {
+      throw new ConvertError(`link "${token.href}": empty link text`)
     }
     return token.text === page ? `[[${page}]]` : `[[${page}|${renderInline(token.tokens, ctx)}]]`
   }

@@ -64,3 +64,7 @@ test('Windows line endings convert like Unix ones, line numbers included', () =>
   assert.equal(convert('# T\r\n\r\n- a\r\n- b\r\n'), '= T =\n\n* a\n* b')
   assert.throws(() => convert('intro\r\n\r\n- [ ] todo'), /fr\.md line 3:/)
 })
+
+test('a UTF-8 BOM at the start of fr.md is ignored', () => {
+  assert.equal(convert('\uFEFF# Présentation\n\nTexte'), '= Présentation =\n\nTexte')
+})
