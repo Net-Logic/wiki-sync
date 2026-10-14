@@ -59,11 +59,12 @@ function presaveLines(presave) {
   ]
 }
 
-export function renderReport({ title, state, force, images, presave = null, diff }) {
+export function renderReport({ title, state, force, images, presave = null, problems = [], diff }) {
   return [
     `Page: ${title}`,
     `State: ${verdict(state, force)}`,
     ...presaveLines(presave),
+    ...(problems.length ? ['Problems (a real run REFUSES):', ...problems.map(problem => `  - ${problem}`)] : []),
     `Images to upload: ${list(images.upload)}`,
     `Images unchanged: ${list(images.unchanged)}`,
     `Images in wiki/images not used by the page: ${list(images.unused)}`,

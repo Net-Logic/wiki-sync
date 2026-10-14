@@ -29,3 +29,8 @@ test('page states', () => {
   assert.equal(pageState({ exists: true, content: 'hand written' }), 'unmarked')
   assert.equal(pageState({ exists: true, content: page.replace('BODY', 'BODY edited') }), 'edited')
 })
+
+test('a page without header has the body right after the comment', () => {
+  const page = assemblePage({ comment: '<!-- c -->', header: '', body: 'BODY' })
+  assert.equal(page, `<!-- c -->\nBODY\n\n<!-- wiki-sync: sha256=${sha256('<!-- c -->\nBODY')} -->`)
+})

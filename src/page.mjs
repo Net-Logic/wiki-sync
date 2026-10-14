@@ -13,7 +13,8 @@ export function generatedComment(sourceUrl) {
 
 // The wiki stores NFC text without trailing whitespace: build it that way so the saved page reads back identical
 export function assemblePage({ comment, header, body }) {
-  const text = `${comment}\n${header}\n\n${body}`.normalize('NFC').replace(/\s+$/, '')
+  const top = header ? `${comment}\n${header}\n\n` : `${comment}\n`
+  const text = `${top}${body}`.normalize('NFC').replace(/\s+$/, '')
   return `${text}\n\n<!-- wiki-sync: sha256=${sha256(text)} -->`
 }
 
