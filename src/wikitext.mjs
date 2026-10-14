@@ -16,12 +16,26 @@ export class ConvertError extends Error {
 
 // Convert wiki/fr.md to wikitext. Returns the text and the set of wiki/images files it uses.
 export function toWikitext(markdown, { imagePrefix, images }) {
+  const source = markdown.replace(/\r\n?/g, '\n')
   const ctx = { imagePrefix, images, used: new Set() }
   const blocks = []
-  for (const token of marked.lexer(markdown)) {
-    const out = renderBlock(token, ctx)
-    if (out !== null) {
-      blocks.push(out)
+  let offset = 0
+  for (const token of marked.lexer(source)) {
+    // Top-level raws follow the source in order: find this one to name its line in errors
+    const at = source.indexOf(token.raw, offset)
+    const start = at === -1 ? offset : at
+    offset = start + token.raw.length
+    try {
+      const out = renderBlock(token, ctx)
+      if (out !== null) {
+        blocks.push(out)
+      }
+    } catch (error) {
+      if (error instanceof ConvertError) {
+        const line = source.slice(0, start).split('\n').length
+        throw new ConvertError(`fr.md line ${line}: ${error.message}`)
+      }
+      throw error
     }
   }
   return { wikitext: blocks.join('\n\n'), images: ctx.used }
@@ -31,11 +45,81 @@ function renderBlock(token, ctx) {
   switch (token.type) {
     case 'space':
       return null
+    case 'heading': {
+      const marks = '='.repeat(token.depth)
+      return `${marks} ${renderInline(token.tokens, ctx)} ${marks}`
+    }
     case 'paragraph':
       return guardLineStart(renderInline(token.tokens, ctx))
+    case 'list':
+      return renderList(token, '', ctx)
+    case 'table':
+      return renderTable(token, ctx)
+    case 'blockquote':
+      return `<blockquote>\n${renderBlocks(token.tokens, ctx)}\n</blockquote>`
+    case 'hr':
+      return '----'
+    case 'code':
+      if (token.lang === 'wikitext') {
+        return token.text
+      }
+      return `<pre>${escapeHtml(token.text)}</pre>`
+    case 'html':
+      return token.text.replace(/\n+$/, '')
     default:
       throw new ConvertError(`unsupported Markdown block "${token.type}"`)
   }
+}
+
+function renderBlocks(tokens, ctx) {
+  return tokens.map(token => renderBlock(token, ctx)).filter(out => out !== null).join('\n\n')
+}
+
+function renderList(list, parentPrefix, ctx) {
+  if (list.ordered && list.start !== 1) {
+    throw new ConvertError(`numbered list starting at ${list.start}: wikitext numbering always starts at 1, indent the content between the steps so the list continues`)
+  }
+  const prefix = parentPrefix + (list.ordered ? '#' : '*')
+  const lines = []
+  for (const item of list.items) {
+    if (item.task) {
+      throw new ConvertError('task list items ("- [ ]") are not supported')
+    }
+    const parts = []
+    const nested = []
+    for (const child of item.tokens) {
+      if (child.type === 'space') {
+        continue
+      }
+      if (child.type === 'list') {
+        nested.push(renderList(child, prefix, ctx))
+      } else if (child.type === 'text' || child.type === 'paragraph') {
+        if (nested.length) {
+          throw new ConvertError('text after a nested list in the same item is not supported')
+        }
+        parts.push(renderInline(child.tokens, ctx))
+      } else {
+        throw new ConvertError(`"${child.type}" inside a list item is not supported`)
+      }
+    }
+    // Several paragraphs of one item (a step and its screenshot) stay on the item line
+    lines.push(`${prefix} ${parts.join('<br/>')}`, ...nested)
+  }
+  return lines.join('\n')
+}
+
+function renderTable(table, ctx) {
+  const cell = (marker, content, align) => {
+    const text = renderInline(content.tokens, ctx)
+    return align ? `${marker} style="text-align:${align};" | ${text}` : `${marker} ${text}`
+  }
+  const lines = ['{| class="wikitable"']
+  lines.push(...table.header.map((content, i) => cell('!', content, table.align[i])))
+  for (const row of table.rows) {
+    lines.push('|-', ...row.map((content, i) => cell('|', content, table.align[i])))
+  }
+  lines.push('|}')
+  return lines.join('\n')
 }
 
 function renderInline(tokens, ctx) {
