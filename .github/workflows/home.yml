@@ -1,0 +1,45 @@
+# The home page of the wiki, from home/accueil.yml: dry run on a pull request or by hand,
+# real update on a push to main. Needs the repository secrets WIKI_LOGIN / WIKI_PASSWORD.
+name: Home page
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'home/**', 'src/**', 'bin/**' ]
+  pull_request:
+    paths: [ 'home/**', 'src/**', 'bin/**' ]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wiki-home
+  cancel-in-progress: false
+jobs:
+  home:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --omit=dev
+      - name: Run
+        env:
+          # Only a push to main changes the wiki: pull requests (forks included) and manual runs are dry runs
+          SUBMIT: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          WIKI_LOGIN: ${{ github.event_name == 'push' && secrets.WIKI_LOGIN || '' }}
+          WIKI_PASSWORD: ${{ github.event_name == 'push' && secrets.WIKI_PASSWORD || '' }}
+          OUT: ${{ runner.temp }}/wiki-out
+        run: |
+          ARGS=()
+          if [ "$SUBMIT" = "true" ]; then ARGS+=(--submit); fi
+          node bin/wiki-sync.mjs --home home/accueil.yml \
+            --source "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/home/accueil.yml" \
+            --out "$OUT" "${ARGS[@]}"
+      - name: Keep the preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiki-home-preview
+          path: ${{ runner.temp }}/wiki-out
+          if-no-files-found: ignore
+          retention-days: 7

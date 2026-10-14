@@ -1,0 +1,50 @@
+# Home page of https://wiki.netlogic.fr, published by the "Home page" workflow on a push to main.
+# A module card: page (the wiki page, must exist), logo (a file already on the wiki, without File:),
+# description (one paragraph of Markdown), optional dolistore (product id) and name (defaults to page).
+title: Accueil
+headline: Documentation des modules Net-Logic
+intro: "Modules Dolibarr développés et maintenus par [Net-Logic](https://www.netlogic.fr). Chaque page détaille l'installation, la configuration et l'utilisation du module ; les modules se téléchargent sur DoliStore."
+groups:
+  - heading: Modules
+    modules:
+      - page: Doli 365
+        logo: Doli365-Doli365_250x250.png
+        description: "E-mails Dolibarr via Microsoft 365, collecte du courrier, agendas et contacts Outlook"
+        dolistore: 647
+      - page: Email Template Manager
+        logo: mydolidash_250x250.png
+        description: "Expéditeur, destinataires et modèle par défaut dans le formulaire d'e-mail de Dolibarr"
+        dolistore: 807
+      - page: Galerie d'Images
+        name: Galerie d'images
+        logo: image_250x250.png
+        description: "Images jointes à tout objet Dolibarr en galerie avec miniatures et diaporama"
+        dolistore: 1029
+      - page: Recapta
+        name: Google reCAPTCHA v3
+        logo: captcha_250x250.png
+        description: "reCAPTCHA v3 invisible de Google sur la page de connexion et les formulaires publics"
+        dolistore: 1246
+      - page: Relance Facture Globale
+        logo: relance_facture_250x250.png
+        description: "Un seul e-mail de relance avec toutes les factures impayées d'un client et leurs PDF"
+        dolistore: 792
+      - page: Corbeille
+        logo: corbeille_250x250.png
+        description: "Les fichiers supprimés de toute zone de documents restent dans une corbeille, restaurables"
+        dolistore: 846
+      - page: Docusign
+        logo: docusign_250x250.png
+        description: "Signatures électroniques certifiées par Docusign, tiers de confiance, depuis Dolibarr"
+        dolistore: 845
+      - page: DoliEsign
+        logo: doliesign_250x250.png
+        description: "Signature électronique des documents Dolibarr"
+  - heading: Librairie commune
+    modules:
+      - page: Prune
+        name: Librairies Prune
+        logo: Prune-prune_250x250.png
+        description: "Librairies communes utilisées par les autres modules Net-Logic : à installer en premier"
+        dolistore: 646
+contact: dolibarr@netlogic.fr

@@ -80,6 +80,26 @@ WIKI_LOGIN='Dolibarr@wikisync' WIKI_PASSWORD='...' node /path/to/wiki-sync/bin/w
   --submit --force
 ```
 
+## Home page
+
+The `Accueil` page is generated from [`home/accueil.yml`](home/accueil.yml) in this repository: a heading,
+then one card per module (logo, name, description, *Documentation* and *DoliStore* links), by group.
+
+```yaml
+      - page: Doli 365                       # the wiki page, must exist
+        logo: Doli365-Doli365_250x250.png    # a file already on the wiki, without File:
+        description: "E-mails Dolibarr via Microsoft 365, ..."   # one paragraph of Markdown
+        dolistore: 647                       # optional, the DoliStore product id
+        name: Doli 365                       # optional, defaults to page
+```
+
+To add a module, add its card once its page exists. The *Home page* workflow publishes the page on a push to
+`main`; a pull request or a manual run is a dry run (artifact `wiki-home-preview`). A missing page or logo is
+reported by the dry run and refused by a real run. The workflow needs the repository secrets `WIKI_LOGIN` and
+`WIKI_PASSWORD`.
+
+By hand: `node bin/wiki-sync.mjs --home home/accueil.yml [--submit [--force]]` (same environment variables).
+
 ## Development
 
 `npm test` (node:test, no network).
