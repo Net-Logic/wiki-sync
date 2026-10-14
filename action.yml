@@ -1,0 +1,68 @@
+name: Wiki sync
+description: Update a Net-Logic wiki page from the wiki/ folder of a module
+inputs:
+  module-path:
+    description: Module repository path
+    default: '.'
+  descriptor:
+    description: Module descriptor path inside the module (for the version)
+    required: true
+  dry-run:
+    description: "Changes the wiki only when exactly 'false'; any other value writes the preview and stops"
+    default: 'true'
+  force:
+    description: "Take over a page never synced or edited by hand. Only for a deliberate one-off run"
+    default: 'false'
+  login:
+    description: Wiki bot password login (User@botname)
+    required: false
+  password:
+    description: Wiki bot password
+    required: false
+  api-url:
+    description: MediaWiki API endpoint
+    default: 'https://wiki.netlogic.fr/api.php'
+# Pin this action to a tag in module workflows: it receives the wiki secrets
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install the dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev
+    - name: Run
+      shell: bash
+      env:
+        WIKI_LOGIN: ${{ inputs.login }}
+        WIKI_PASSWORD: ${{ inputs.password }}
+        IN_MODULE: ${{ inputs.module-path }}
+        IN_DESCRIPTOR: ${{ inputs.descriptor }}
+        IN_DRYRUN: ${{ inputs.dry-run }}
+        IN_FORCE: ${{ inputs.force }}
+        IN_API: ${{ inputs.api-url }}
+        IN_OUT: ${{ runner.temp }}/wiki-out
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        # Fail closed: a real change only when the input is exactly "false"
+        ARGS=()
+        if [ "$IN_DRYRUN" = "false" ]; then ARGS+=(--submit); fi
+        if [ "$IN_FORCE" = "true" ]; then ARGS+=(--force); fi
+        SOURCE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/$IN_MODULE/wiki/fr.md"
+        SOURCE="${SOURCE//\/.\//\/}"
+        node "$ACTION_PATH/bin/wiki-sync.mjs" \
+          --module "$IN_MODULE" \
+          --descriptor "$IN_DESCRIPTOR" \
+          --api "$IN_API" \
+          --source "$SOURCE" \
+          --out "$IN_OUT" "${ARGS[@]}"
+    - name: Keep the preview
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: wiki-preview
+        path: ${{ runner.temp }}/wiki-out
+        if-no-files-found: ignore
+        retention-days: 7
