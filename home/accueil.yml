@@ -45,6 +45,9 @@ groups:
         logo: OrderToSupplier-cover.png
         description: "Commandes fournisseurs et demandes de prix créées depuis une commande client validée, liées ligne à ligne"
         dolistore: 3707
+      - page: Étiquettes ZPL
+        logo: ZplLabels-cover.png
+        description: "Étiquettes ZPL d'expédition et de produit, créées dans un éditeur visuel et générées depuis les fiches"
       - page: DoliEsign
         logo: doliesign_250x250.png
         description: "Signature électronique des documents Dolibarr"
