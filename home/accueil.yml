@@ -34,7 +34,7 @@ groups:
         description: "Les fichiers supprimés de toute zone de documents restent dans une corbeille, restaurables"
         dolistore: 846
       - page: Docusign
-        logo: docusign_250x250.png
+        logo: Docusign-docusign_250x250.png
         description: "Signatures électroniques certifiées par Docusign, tiers de confiance, depuis Dolibarr"
         dolistore: 845
       - page: Office Editor
