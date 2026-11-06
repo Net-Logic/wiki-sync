@@ -48,6 +48,9 @@ groups:
       - page: Étiquettes ZPL
         logo: ZplLabels-cover.png
         description: "Étiquettes ZPL d'expédition et de produit, créées dans un éditeur visuel et générées depuis les fiches"
+      - page: DocConverter
+        logo: DocConverter-cover.png
+        description: "Documents ODT convertis en PDF par un service Gotenberg distant, sans LibreOffice sur le serveur web"
       - page: DoliEsign
         logo: doliesign_250x250.png
         description: "Signature électronique des documents Dolibarr"
