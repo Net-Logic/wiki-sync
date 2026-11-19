@@ -35,7 +35,7 @@ groups:
         dolistore: 846
       - page: Envelope Sign
         logo: EnvelopeSign-envelopesign_250x250.png
-        description: "Signatures électroniques certifiées par DocuSign, tiers de confiance, depuis Dolibarr"
+        description: "Signatures électroniques certifiées par DocuSign®, tiers de confiance, depuis Dolibarr"
         dolistore: 845
       - page: Office Editor
         logo: OfficeEditor-cover.png
